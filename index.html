@@ -250,6 +250,14 @@
         .mic-btn.recording { background-color: #ff0055; color: white; animation: recPulse 1s infinite alternate; }
         .mic-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
+        /* SAFE ZONE SYSTEM SPACE RESERVED UNDER MOBILE CHAT */
+        .mobile-chrome-spacer {
+            display: none;
+            width: 100%;
+            height: 90px;
+            background-color: #0b0c10;
+        }
+
         @keyframes recPulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 0, 85, 0.4); } 100% { transform: scale(1.08); box-shadow: 0 0 10px 4px rgba(255, 0, 85, 0.2); } }
 
         /* OVERALL BASE ACTIONS CONTROLS */
@@ -310,14 +318,17 @@
         @media (max-width: 768px) {
             .profile-bar-container { top: 12px; left: 12px; position: fixed; }
             .name-hint-arrow { display: none; }
-            .spectator-counter { top: 12px; left: auto; right: 110px; position: fixed; }
+            .spectator-counter { top: 12px; left: auto; right: 20px; position: fixed; }
             body { align-items: flex-start; }
-            .workspace { flex-direction: column; height: auto; min-height: 100vh; padding: 75px 15px 70px 15px; justify-content: flex-start; }
+            .workspace { flex-direction: column; height: auto; min-height: 100vh; padding: 75px 15px 0px 15px; justify-content: flex-start; }
             .lobby-panel { margin-top: 15px; }
-            .game-container { flex-direction: column; height: auto; width: 100%; justify-content: flex-start; }
+            .game-container { flex-direction: column; height: auto; width: 100%; justify-content: flex-start; display: none; }
             .matrix-pane { flex: none; width: 100%; }
-            .chat-toggle-container { display: flex; top: 12px; right: 12px; position: fixed; }
-            .comms-pane { width: 100%; max-width: 380px; height: 260px; margin-top: 15px; margin-bottom: 20px; }
+            
+            /* Persistent layout block overrides for chat pane on mobile devices */
+            .chat-toggle-container { display: none !important; } /* No closing toggle box needed anymore */
+            .comms-pane { display: flex !important; width: 100%; max-width: 380px; height: 280px; margin-top: 20px; }
+            .mobile-chrome-spacer { display: block; } /* Insulates bottom keyboard/search interfaces */
         }
     </style>
 </head>
@@ -403,6 +414,8 @@
                 </button>
             </div>
         </div>
+
+        <div class="mobile-chrome-spacer"></div>
     </div>
 </div>
 
@@ -592,15 +605,16 @@
         document.getElementById('gameStage').style.display = "flex";
 
         if(window.innerWidth <= 768) {
-            isChatVisible = false;
-            document.getElementById('chatPane').classList.add('hidden');
-            document.getElementById('chatToggleWrapper').style.display = "flex";
+            isChatVisible = true; // Always lock layout open on mobile viewport
+            document.getElementById('chatPane').classList.remove('hidden');
+            document.getElementById('chatToggleWrapper').style.display = "none";
         }
         syncTurnTimerLoop();
         initMicrophoneCaptureEngine();
     }
 
     function toggleChatPane() {
+        if(window.innerWidth <= 768) return; // Prevent collapse action on mobile terminals
         const pane = document.getElementById('chatPane');
         isChatVisible = !isChatVisible;
         if(isChatVisible) {
@@ -770,7 +784,6 @@
             };
             
             const btn = document.getElementById('micButton');
-            // Replaced old touch holding system with simple click toggle
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (!isRecording) {
