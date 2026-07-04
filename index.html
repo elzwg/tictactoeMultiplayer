@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Matrix - TicTacToe Hub</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            background-color: #0b0c10;
+            color: #c5c6c7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            height: -webkit-fill-available;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .workspace {
+            display: flex;
+            width: 100%;
+            max-width: 1100px;
+            height: 100%;
+            max-height: 90vh;
+            padding: 20px;
+            gap: 30px;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* IDENTITY PROFILE & NOTIFICATION ARROW */
+        .profile-bar-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+        }
+        .profile-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: #1f2833;
+            padding: 8px 16px;
+            border-radius: 30px;
+            border: 1px solid #2f3e46;
+        }
+        .profile-avatar {
+            width: 32px;
+            height: 32px;
+            background-color: #45f3ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0b0c10;
+            font-weight: bold;
+        }
+        .profile-name-input {
+            background: transparent;
+            border: none;
+            color: #45f3ff;
+            font-weight: bold;
+            font-size: 0.9rem;
+            outline: none;
+            width: 110px;
+        }
+        .name-hint-arrow {
+            color: #ffcc00;
+            font-size: 0.8rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            text-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
+            animation: bounceLeft 0.5s infinite alternate;
+        }
+        @keyframes bounceLeft {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(4px); }
+        }
+
+        /* LIVE WATCH TICKER COUNTER */
+        .spectator-counter {
+            position: absolute;
+            top: 20px;
+            left: 360px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background-color: rgba(31, 40, 51, 0.85);
+            border: 1px solid #ffaa00;
+            color: #ffaa00;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            z-index: 100;
+        }
+
+        /* CLEAN TITLE SCREEN CARD */
+        .lobby-panel {
+            background-color: #1f2833;
+            border: 3px solid #45f3ff;
+            border-radius: 12px;
+            padding: 35px 30px;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+        .lobby-header { text-align: center; margin-bottom: 30px; }
+        h1 {
+            color: #66fcf1;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .lobby-header p { color: #858b94; font-size: 0.9rem; margin-top: 5px; }
+
+        /* VIEW NAVIGATION PANELS */
+        .lobby-view { display: none; }
+        .lobby-view.active { display: block; }
+
+        /* MAIN GAME CONTAINER VIEWPORTS */
+        .game-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+            gap: 25px;
+            align-items: center;
+            justify-content: center;
+        }
+        .matrix-pane {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+        }
+        .turn-indicator {
+            font-size: 1.8rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            min-height: 35px;
+            text-shadow: 0 0 10px rgba(69, 243, 255, 0.3);
+        }
+        .turn-indicator.mine { color: #66fcf1; }
+        .turn-indicator.opponents { color: #ff0055; }
+        .turn-indicator.spectating { color: #ffaa00; }
+
+        .timer-wrapper {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid #2f3e46;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #45f3ff;
+            background-color: #0b0c10;
+        }
+        .timer-wrapper.danger {
+            border-color: #ff0055;
+            color: #ff0055;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 12px;
+            width: min(380px, 85vw);
+            height: min(380px, 85vw);
+            background-color: #1f2833;
+            border: 3px solid #45f3ff;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+        .cell {
+            background-color: #0b0c10;
+            border-radius: 8px;
+            border: 1px solid #2f3e46;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* COMMS STREAM PANELS */
+        .comms-pane {
+            width: 320px;
+            height: 480px;
+            background-color: #1f2833;
+            border: 2px solid #2f3e46;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .comms-pane.hidden { display: none !important; }
+
+        .chat-history {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: #0b0c10;
+        }
+        .msg {
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 85%;
+            font-size: 0.9rem;
+            word-break: break-word;
+        }
+        .msg.local { background-color: #1a60cc; color: white; align-self: flex-end; }
+        .msg.remote { background-color: #2f3e46; color: #c5c6c7; align-self: flex-start; }
+        .msg.system { background-color: transparent; color: #66fcf1; font-style: italic; align-self: center; text-align: center; font-size: 0.8rem; }
+
+        .chat-input-row { display: flex; padding: 10px; background-color: #1f2833; gap: 8px; border-top: 1px solid #2f3e46; }
+        .chat-input-row input { flex: 1; background-color: #0b0c10; border: 1px solid #2f3e46; color: white; padding: 10px; border-radius: 6px; outline: none; }
+        
+        .mic-btn { width: 42px; height: 42px; border-radius: 50%; background-color: #2f3e46; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #66fcf1; }
+        .mic-btn.recording { background-color: #ff0055; color: white; }
+        .mic-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+        /* OVERALL BASE ACTIONS CONTROLS */
+        .chat-toggle-container { position: absolute; top: 20px; right: 20px; display: none; z-index: 10; }
+        .btn-toggle-chat { background-color: #1f2833; border: 2px solid #45f3ff; color: #66fcf1; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; display: flex; gap: 8px; }
+        .unread-badge { background-color: #ffcc00; color: #0b0c10; font-size: 0.75rem; font-weight: 900; padding: 2px 6px; border-radius: 10px; display: none; }
+
+        .action-group { display: flex; flex-direction: column; gap: 20px; }
+        .split-row { display: flex; gap: 12px; }
+        button.btn-main {
+            background-color: #45f3ff; color: #0b0c10; border: none; padding: 14px;
+            font-size: 0.95rem; font-weight: bold; border-radius: 25px; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 1px; width: 100%;
+        }
+        button.btn-sec { background-color: transparent; color: #45f3ff; border: 2px solid #45f3ff; }
+        
+        .room-display { font-size: 2.2rem; font-weight: bold; color: #00ff66; letter-spacing: 4px; text-align: center; margin: 15px 0; }
+        .token { font-size: min(3rem, 12vw); font-weight: 900; font-family: 'Impact', sans-serif; position: absolute; }
+        .token.x-style { color: #1a60cc; }
+        .token.o-style { color: #ff0055; }
+
+        /* INLINE CODE ENTRY SUBSECTION */
+        .inline-code-box {
+            border-top: 1px solid #2f3e46;
+            padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .inline-code-box label {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #858b94;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .code-input-field {
+            background-color: #0b0c10;
+            border: 1px solid #2f3e46;
+            color: white;
+            padding: 12px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .code-input-field:focus {
+            border-color: #45f3ff;
+        }
+
+        @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.05); } }
+
+        @media (max-width: 768px) {
+            .profile-bar-container { top: 12px; left: 12px; }
+            .name-hint-arrow { display: none; }
+            .spectator-counter { top: 12px; left: auto; right: 110px; }
+            .workspace { flex-direction: column; height: 100%; max-height: 100vh; padding: 70px 15px 15px 15px; justify-content: flex-start; }
+            .game-container { flex-direction: column; height: 100%; justify-content: flex-start; }
+            .matrix-pane { flex: none; width: 100%; }
+            .chat-toggle-container { display: flex; top: 12px; right: 12px; }
+            .comms-pane { width: 100%; max-width: 380px; height: 180px; margin-top: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="profile-bar-container">
+    <div class="profile-bar">
+        <div class="profile-avatar" id="avatarLetter">G</div>
+        <input type="text" id="usernameInput" class="profile-name-input" maxlength="12" oninput="saveIdentitySignature()">
+    </div>
+    <div class="name-hint-arrow">← Change your name here</div>
+</div>
+
+<div class="spectator-counter" id="spectatorTracker">
+    <svg style="width:16px; height:16px; fill:currentColor;" viewBox="0 0 24 24">
+        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+    </svg>
+    <span id="spectatorTally">0 Watching</span>
+</div>
+
+<div class="chat-toggle-container" id="chatToggleWrapper">
+    <button class="btn-toggle-chat" onclick="toggleChatPane()">
+        <span>Chat</span>
+        <span class="unread-badge" id="unreadCountBadge">+0</span>
+    </button>
+</div>
+
+<div class="workspace">
+    <div id="lobbyStage" class="lobby-panel">
+        
+        <div class="lobby-header">
+            <h1>Multiplayer</h1>
+            <p id="lobbySubtitle">Establish an end-to-end peer matching pipeline.</p>
+        </div>
+
+        <div id="viewMain" class="lobby-view active">
+            <div class="action-group">
+                <button class="btn-main" onclick="createMatchHost()">Create Lobby</button>
+                
+                <div class="inline-code-box">
+                    <label>Join Existing Room</label>
+                    <input type="text" id="roomCodeInput" class="code-input-field" placeholder="6-DIGIT CODE" maxlength="6">
+                    <button class="btn-main btn-sec" onclick="connectToRoomCodeKey()">Connect to Code</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="viewHostWait" class="lobby-view">
+            <p style="font-size:0.85rem; text-align:center; color: #858b94; text-transform: uppercase; letter-spacing: 1px;">Your connection room key code:</p>
+            <div class="room-display" id="generatedCode">------</div>
+            <button class="btn-main btn-sec" onclick="abortMatchStaging()">Cancel Lobby</button>
+        </div>
+
+        <div id="netStatus" style="text-align:center; font-size:0.8rem; color:#45f3ff; margin-top:25px;">Mesh Network Standby</div>
+    </div>
+
+    <div id="gameStage" class="game-container">
+        <div class="matrix-pane">
+            <div id="turnIndicator" class="turn-indicator">YOUR TURN</div>
+            <div id="timerDisplay" class="timer-wrapper">10</div>
+            <div id="grid">
+                <div class="cell" onclick="cellSelection(0)"></div>
+                <div class="cell" onclick="cellSelection(1)"></div>
+                <div class="cell" onclick="cellSelection(2)"></div>
+                <div class="cell" onclick="cellSelection(3)"></div>
+                <div class="cell" onclick="cellSelection(4)"></div>
+                <div class="cell" onclick="cellSelection(5)"></div>
+                <div class="cell" onclick="cellSelection(6)"></div>
+                <div class="cell" onclick="cellSelection(7)"></div>
+                <div class="cell" onclick="cellSelection(8)"></div>
+            </div>
+            <button id="exitBtn" class="btn-main btn-sec" style="display:none; max-width:200px;" onclick="location.reload()">Exit Game</button>
+        </div>
+
+        <div class="comms-pane" id="chatPane">
+            <div id="chatHistory" class="chat-history">
+                <div class="msg system">Secure Pipeline Handshake Initialized</div>
+            </div>
+            <div class="chat-input-row" id="chatControlBar">
+                <input type="text" id="chatMessageInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendTextMessage()">
+                <button id="micButton" class="mic-btn" title="Hold down to record voice">
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.3 6-6.72h-1.7z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myUsername = "";
+    let peer = null, conn = null;
+    let mySign = "", isMyTurn = false, matchActive = false, isSpectator = false;
+    let localBoard = Array(9).fill("");
+    
+    let turnCountdown = 10, countdownInterval = null;
+    let mediaRecorder = null, voiceChunks = [];
+    let recordingTimeout = null;
+    let isChatVisible = true, unreadMessagesCount = 0;
+    
+    let totalSpectators = 0, spectatorConnections = [];
+
+    // Identity Profiling System Setup
+    window.addEventListener('DOMContentLoaded', () => {
+        let savedName = localStorage.getItem('matrix_player_nick');
+        if(!savedName) {
+            savedName = "Guest" + Math.floor(1000 + Math.random() * 9000);
+        }
+        document.getElementById('usernameInput').value = savedName;
+        myUsername = savedName;
+        document.getElementById('avatarLetter').innerText = savedName.charAt(0).toUpperCase();
+    });
+
+    function saveIdentitySignature() {
+        let val = document.getElementById('usernameInput').value.trim();
+        if(!val) val = "Guest" + Math.floor(1000 + Math.random() * 9000);
+        myUsername = val;
+        document.getElementById('avatarLetter').innerText = val.charAt(0).toUpperCase();
+        localStorage.setItem('matrix_player_nick', val);
+    }
+
+    function switchLobbyView(viewKey) {
+        document.querySelectorAll('.lobby-view').forEach(v => v.classList.remove('active'));
+        const subtitle = document.getElementById('lobbySubtitle');
+        
+        if(viewKey === 'main') {
+            document.getElementById('viewMain').classList.add('active');
+            subtitle.innerText = "Establish an end-to-end peer matching pipeline.";
+        } else if(viewKey === 'host-wait') {
+            document.getElementById('viewHostWait').classList.add('active');
+            subtitle.innerText = "Awaiting inbound node connection link...";
+        }
+    }
+
+    function generateCode() {
+        const alpha = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let res = "";
+        for(let i=0; i<6; i++) res += alpha.charAt(Math.floor(Math.random() * alpha.length));
+        return res;
+    }
+
+    function initializeSignalingPeer(forcedId = null) {
+        document.getElementById('netStatus').innerText = "Linking signaling gateway...";
+        if(peer) peer.destroy();
+        
+        peer = new Peer(forcedId);
+
+        peer.on('open', (id) => {
+            document.getElementById('netStatus').innerText = "Signaling path synchronized.";
+        });
+
+        peer.on('connection', (inboundConnection) => {
+            inboundConnection.on('open', () => {
+                if (inboundConnection.metadata && inboundConnection.metadata.spectator) {
+                    spectatorConnections.push(inboundConnection);
+                    totalSpectators = spectatorConnections.length;
+                    transmitSpectatorBroadcast({ type: 'sync_spectators', count: totalSpectators });
+                    refreshSpectatorCounterUI();
+                    inboundConnection.send({ type: 'init_spectate', board: localBoard, turn: isMyTurn, signs: { local: mySign } });
+                    return;
+                }
+                if(conn) { inboundConnection.close(); return; }
+                conn = inboundConnection;
+                mySign = "X";
+                isMyTurn = true;
+                bindDataChannels();
+                engageActiveGameStage();
+            });
+        });
+
+        peer.on('error', () => {
+            document.getElementById('netStatus').innerText = "Gateway coordinate mismatch error.";
+        });
+    }
+
+    function createMatchHost() {
+        const rawCode = generateCode();
+        switchLobbyView('host-wait');
+        document.getElementById('generatedCode').innerText = rawCode;
+        initializeSignalingPeer(rawCode);
+    }
+
+    function connectToRoomCodeKey() {
+        const inputKey = document.getElementById('roomCodeInput').value.toUpperCase().trim();
+        if(inputKey.length !== 6) return;
+        establishTargetSignalLink(inputKey);
+    }
+
+    function establishTargetSignalLink(targetId) {
+        if(!peer) {
+            peer = new Peer();
+            peer.on('open', () => executeDirectP2PLink(targetId));
+        } else {
+            executeDirectP2PLink(targetId);
+        }
+    }
+
+    function executeDirectP2PLink(targetId) {
+        mySign = "O";
+        isMyTurn = false;
+
+        conn = peer.connect(targetId, {
+            metadata: { spectator: false, name: myUsername }
+        });
+
+        conn.on('open', () => {
+            bindDataChannels();
+            engageActiveGameStage();
+        });
+    }
+
+    function abortMatchStaging() {
+        if(peer) { peer.destroy(); peer = null; }
+        switchLobbyView('main');
+        document.getElementById('netStatus').innerText = "Mesh Network Standby";
+    }
+
+    function bindDataChannels() {
+        conn.on('data', (data) => {
+            if (data.type === 'move') {
+                applyBoardPlacements(data.index, data.player);
+                if (matchActive && !isSpectator) { isMyTurn = true; syncTurnTimerLoop(); }
+                if(!isSpectator) transmitSpectatorBroadcast(data);
+            } else if (data.type === 'timeout') {
+                appendChatLog("System", "Opponent turn time limits expired.");
+                handleIncomingNotification();
+                if(!isSpectator) { isMyTurn = true; syncTurnTimerLoop(); transmitSpectatorBroadcast(data); }
+            } else if (data.type === 'chat') {
+                appendChatLog(data.sender || "Opponent", data.message);
+                handleIncomingNotification();
+                if(!isSpectator) transmitSpectatorBroadcast(data);
+            } else if (data.type === 'voice') {
+                appendChatLog(data.sender || "Opponent", "", true, data.audio);
+                handleIncomingNotification();
+                if(!isSpectator) transmitSpectatorBroadcast(data);
+            } else if (data.type === 'init_spectate' && isSpectator) {
+                localBoard = data.board;
+                document.getElementById('grid').innerHTML = Array(9).fill('<div class="cell"></div>').join('');
+                localBoard.forEach((sign, i) => { if(sign) paintTokenGraphic(i, sign); });
+                syncTurnTimerLoop();
+            } else if (data.type === 'sync_spectators') {
+                totalSpectators = data.count;
+                refreshSpectatorCounterUI();
+            }
+        });
+        conn.on('close', () => {
+            matchActive = false;
+            clearInterval(countdownInterval);
+            appendChatLog("System", "Match stream host terminated pipeline.");
+            document.getElementById('exitBtn').style.display = "block";
+        });
+    }
+
+    function transmitSpectatorBroadcast(packet) {
+        spectatorConnections = spectatorConnections.filter(c => c.open);
+        spectatorConnections.forEach(c => c.send(packet));
+    }
+
+    function refreshSpectatorCounterUI() {
+        const panel = document.getElementById('spectatorTracker');
+        const count = document.getElementById('spectatorTally');
+        if(totalSpectators > 0) {
+            count.innerText = `${totalSpectators} Watching`;
+            panel.style.display = "flex";
+        } else {
+            panel.style.display = "none";
+        }
+    }
+
+    function engageActiveGameStage() {
+        matchActive = true;
+        document.getElementById('lobbyStage').style.display = "none";
+        document.getElementById('gameStage').style.display = "flex";
+
+        if(window.innerWidth <= 768) {
+            isChatVisible = false;
+            document.getElementById('chatPane').classList.add('hidden');
+            document.getElementById('chatToggleWrapper').style.display = "flex";
+        }
+        syncTurnTimerLoop();
+        initMicrophoneCaptureEngine();
+    }
+
+    function toggleChatPane() {
+        const pane = document.getElementById('chatPane');
+        isChatVisible = !isChatVisible;
+        if(isChatVisible) {
+            pane.classList.remove('hidden');
+            unreadMessagesCount = 0;
+            updateUnreadBadgeDisplay();
+        } else {
+            pane.classList.add('hidden');
+        }
+    }
+
+    function updateUnreadBadgeDisplay() {
+        const badge = document.getElementById('unreadCountBadge');
+        if(unreadMessagesCount > 0) {
+            badge.innerText = `+${unreadMessagesCount}`;
+            badge.style.display = "inline-block";
+        } else {
+            badge.style.display = "none";
+        }
+    }
+
+    function handleIncomingNotification() {
+        if(!isChatVisible) { unreadMessagesCount++; updateUnreadBadgeDisplay(); }
+    }
+
+    function syncTurnTimerLoop() {
+        clearInterval(countdownInterval);
+        if(!matchActive) return;
+
+        const label = document.getElementById('turnIndicator');
+        const clock = document.getElementById('timerDisplay');
+
+        turnCountdown = 10;
+        clock.innerText = turnCountdown;
+        clock.classList.remove('danger');
+
+        if(isMyTurn) {
+            label.innerText = "YOUR TURN";
+            label.className = "turn-indicator mine";
+        } else {
+            label.innerText = "PLAYER'S TURN";
+            label.className = "turn-indicator opponents";
+        }
+
+        countdownInterval = setInterval(() => {
+            turnCountdown--;
+            clock.innerText = turnCountdown;
+            if(turnCountdown <= 3) clock.classList.add('danger');
+
+            if(turnCountdown <= 0) {
+                clearInterval(countdownInterval);
+                if(isMyTurn) {
+                    isMyTurn = false;
+                    const timeoutPacket = { type: 'timeout' };
+                    conn.send(timeoutPacket);
+                    transmitSpectatorBroadcast(timeoutPacket);
+                    appendChatLog("System", "Turn expired automatically.");
+                    syncTurnTimerLoop();
+                }
+            }
+        }, 1000);
+    }
+
+    function cellSelection(index) {
+        if(isSpectator || !isMyTurn || !matchActive || localBoard[index] !== "") return;
+        applyBoardPlacements(index, mySign);
+
+        const packet = { type: 'move', index: index, player: mySign };
+        conn.send(packet);
+        transmitSpectatorBroadcast(packet);
+
+        isMyTurn = false;
+        syncTurnTimerLoop();
+    }
+
+    function applyBoardPlacements(index, player) {
+        localBoard[index] = player;
+        paintTokenGraphic(index, player);
+        analyzeGridEndgames();
+    }
+
+    function paintTokenGraphic(index, player) {
+        const block = document.getElementsByClassName('cell')[index];
+        if(!block) return;
+        block.innerHTML = "";
+        const sym = document.createElement('div');
+        sym.className = `token ${player === 'X' ? 'x-style' : 'o-style'}`;
+        sym.innerText = player;
+        block.appendChild(sym);
+    }
+
+    function analyzeGridEndgames() {
+        const combinations = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+        let winner = null;
+        for(let combo of combinations) {
+            if(localBoard[combo[0]] && localBoard[combo[0]] === localBoard[combo[1]] && localBoard[combo[0]] === localBoard[combo[2]]) {
+                winner = localBoard[combo[0]];
+            }
+        }
+        if(winner || !localBoard.includes("")) {
+            matchActive = false;
+            clearInterval(countdownInterval);
+            document.getElementById('timerDisplay').style.display = "none";
+            document.getElementById('exitBtn').style.display = "block";
+            const tag = document.getElementById('turnIndicator');
+            if(winner) {
+                tag.innerText = winner === mySign ? "YOU WON" : "YOU LOST";
+                tag.className = winner === mySign ? "turn-indicator mine" : "turn-indicator opponents";
+            } else {
+                tag.innerText = "DRAW MATCH";
+                tag.className = "turn-indicator";
+            }
+        }
+    }
+
+    function sendTextMessage() {
+        const input = document.getElementById('chatMessageInput');
+        const str = input.value.trim();
+        if(!str || !conn) return;
+
+        const chatData = { type: 'chat', message: str, sender: myUsername };
+        conn.send(chatData);
+        transmitSpectatorBroadcast(chatData);
+
+        appendChatLog("You", str);
+        input.value = "";
+    }
+
+    function appendChatLog(sender, text, isVoice = false, mediaBase64 = null) {
+        const area = document.getElementById('chatHistory');
+        const block = document.createElement('div');
+
+        if(sender === 'You') block.className = 'msg local';
+        else if(sender === 'System') block.className = 'msg system';
+        else block.className = 'msg remote';
+
+        if(isVoice) {
+            const btn = document.createElement('button');
+            btn.style = "background:none; border:none; color:inherit; font:inherit; cursor:pointer; font-weight:bold;";
+            btn.innerText = `▶ ${sender}'s Voice Message`;
+            btn.onclick = () => { new Audio(mediaBase64).play(); };
+            block.appendChild(btn);
+        } else {
+            block.innerText = sender === 'System' ? text : `${sender}: ${text}`;
+        }
+        area.appendChild(block);
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function initMicrophoneCaptureEngine() {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) voiceChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(voiceChunks, { type: 'audio/webm' });
+                voiceChunks = [];
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    if(conn) {
+                        const voicePacket = { type: 'voice', audio: reader.result, sender: myUsername };
+                        conn.send(voicePacket);
+                        transmitSpectatorBroadcast(voicePacket);
+                        appendChatLog("You", "", true, reader.result);
+                    }
+                };
+            };
+            const btn = document.getElementById('micButton');
+            btn.addEventListener('mousedown', () => { voiceChunks = []; mediaRecorder.start(); btn.classList.add('recording'); });
+            btn.addEventListener('mouseup', () => { if(mediaRecorder.state==='recording'){mediaRecorder.stop(); btn.classList.remove('recording');} });
+        }).catch(() => {});
+    }
+</script>
+</body>
+</html>
