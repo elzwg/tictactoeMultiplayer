@@ -248,6 +248,7 @@
         
         .mic-btn { width: 42px; height: 42px; border-radius: 50%; background-color: #2f3e46; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #66fcf1; }
         .mic-btn.recording { background-color: #ff0055; color: white; animation: recPulse 1s infinite alternate; }
+        .mic-btn:disabled { background-color: #151a21; color: #4e555e; cursor: not-allowed; }
         .mic-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
         /* SAFE ZONE SYSTEM SPACE RESERVED UNDER MOBILE CHAT */
@@ -326,9 +327,9 @@
             .matrix-pane { flex: none; width: 100%; }
             
             /* Persistent layout block overrides for chat pane on mobile devices */
-            .chat-toggle-container { display: none !important; } /* No closing toggle box needed anymore */
+            .chat-toggle-container { display: none !important; }
             .comms-pane { display: flex !important; width: 100%; max-width: 380px; height: 280px; margin-top: 20px; }
-            .mobile-chrome-spacer { display: block; } /* Insulates bottom keyboard/search interfaces */
+            .mobile-chrome-spacer { display: block; }
         }
     </style>
 </head>
@@ -605,7 +606,7 @@
         document.getElementById('gameStage').style.display = "flex";
 
         if(window.innerWidth <= 768) {
-            isChatVisible = true; // Always lock layout open on mobile viewport
+            isChatVisible = true; 
             document.getElementById('chatPane').classList.remove('hidden');
             document.getElementById('chatToggleWrapper').style.display = "none";
         }
@@ -614,7 +615,7 @@
     }
 
     function toggleChatPane() {
-        if(window.innerWidth <= 768) return; // Prevent collapse action on mobile terminals
+        if(window.innerWidth <= 768) return; 
         const pane = document.getElementById('chatPane');
         isChatVisible = !isChatVisible;
         if(isChatVisible) {
@@ -765,11 +766,39 @@
     }
 
     function initMicrophoneCaptureEngine() {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) voiceChunks.push(e.data); };
+        const btn = document.getElementById('micButton');
+        
+        // Define audio constraints suitable for mobile device audio hardware
+        const constraints = { 
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            } 
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+            // Pick a mime type supported by the mobile OS (audio/webm or audio/mp4/aac fallback)
+            let options = { mimeType: 'audio/webm' };
+            if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    options = { mimeType: 'audio/mp4' };
+                } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+                    options = { mimeType: 'audio/aac' };
+                } else {
+                    options = {}; // System default fallback
+                }
+            }
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            
+            mediaRecorder.ondataavailable = e => { 
+                if(e.data && e.data.size > 0) voiceChunks.push(e.data); 
+            };
+
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(voiceChunks, { type: 'audio/webm' });
+                const audioBlob = new Blob(voiceChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
                 voiceChunks = [];
                 const reader = new FileReader();
                 reader.readAsDataURL(audioBlob);
@@ -783,7 +812,8 @@
                 };
             };
             
-            const btn = document.getElementById('micButton');
+            // Enable mic toggle interaction
+            btn.disabled = false;
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (!isRecording) {
@@ -792,14 +822,19 @@
                     isRecording = true;
                     btn.classList.add('recording');
                 } else {
-                    if (mediaRecorder.state === 'recording') {
+                    if (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused') {
                         mediaRecorder.stop();
                     }
                     isRecording = false;
                     btn.classList.remove('recording');
                 }
             });
-        }).catch(() => {});
+        })
+        .catch(err => {
+            console.error("Microphone setup failed:", err);
+            appendChatLog("System", "Microphone access blocked. Check browser permissions or use HTTPS.");
+            btn.disabled = true;
+        });
     }
 </script>
 </body>
